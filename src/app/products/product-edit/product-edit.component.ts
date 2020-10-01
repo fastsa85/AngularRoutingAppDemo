@@ -14,7 +14,23 @@ export class ProductEditComponent implements OnInit{
   pageTitle = 'Product Edit';
   errorMessage: string;
 
-  product: Product;
+  get product(): Product {
+    return this.currentProduct;
+  }
+
+  set product(value: Product) {
+    this.currentProduct = value;
+
+    this.originalProduct = { ...value};
+  }
+
+  get isDirty(): boolean {
+    return JSON.stringify(this.originalProduct) !== JSON.stringify(this.currentProduct);
+  }
+
+  private dataIsValid: { [key: string]: boolean } = {};
+  private currentProduct: Product;
+  private originalProduct: Product;
 
   constructor(private productService: ProductService,
               private messageService: MessageService,
@@ -23,9 +39,9 @@ export class ProductEditComponent implements OnInit{
 
   ngOnInit(): void {
     this.activatedRoute.data.subscribe(data => {
-    const resolvedData: ProductResolved = this.activatedRoute.snapshot.data['product'];
-    this.errorMessage = resolvedData.error;
-    this.product = resolvedData.product;
+      const resolvedData: ProductResolved = this.activatedRoute.snapshot.data['resolvedData'];
+      this.errorMessage = resolvedData.error;
+      this.product = resolvedData.product;
     });
   }
 
@@ -57,21 +73,38 @@ export class ProductEditComponent implements OnInit{
     }
   }
 
+  isValid(path?: string): boolean {
+    this.validate();
+    if(path){
+      return this.dataIsValid[path];
+    }
+
+    return (this.dataIsValid && Object.keys(this.dataIsValid).every(d => this.dataIsValid[d] === true));
+  }
+
+  reset(): void {
+    this.dataIsValid = null;
+    this.currentProduct = null;
+    this.originalProduct = null;
+  }
+
   saveProduct(): void {
-    if (true === true) {
-      if (this.product.id === 0) {
-        this.productService.createProduct(this.product).subscribe({
-          next: () => this.onSaveComplete(`The new ${this.product.productName} was saved`),
-          error: err => this.errorMessage = err
-        });
+    if (this.isValid()){
+      if (true === true) {
+        if (this.product.id === 0) {
+          this.productService.createProduct(this.product).subscribe({
+            next: () => this.onSaveComplete(`The new ${this.product.productName} was saved`),
+            error: err => this.errorMessage = err
+          });
+        } else {
+          this.productService.updateProduct(this.product).subscribe({
+            next: () => this.onSaveComplete(`The updated ${this.product.productName} was saved`),
+            error: err => this.errorMessage = err
+          });
+        }
       } else {
-        this.productService.updateProduct(this.product).subscribe({
-          next: () => this.onSaveComplete(`The updated ${this.product.productName} was saved`),
-          error: err => this.errorMessage = err
-        });
+        this.errorMessage = 'Please correct the validation errors.';
       }
-    } else {
-      this.errorMessage = 'Please correct the validation errors.';
     }
   }
 
@@ -79,7 +112,29 @@ export class ProductEditComponent implements OnInit{
     if (message) {
       this.messageService.addMessage(message);
     }
+    this.reset();
 
     this.router.navigateByUrl('/products');
+  }
+
+  validate(): void {
+    this.dataIsValid = {};
+
+    if (  this.product.productName &&
+          this.product.productName.length >= 3 &&
+          this.product.productCode) {
+      this.dataIsValid['info'] = true;
+    }
+    else {
+      this.dataIsValid['info'] = false;
+    }
+
+    if (  this.product.category &&
+          this.product.category.length) {
+      this.dataIsValid['tags'] = true;
+    }
+    else {
+      this.dataIsValid['tags'] = false;
+    }
   }
 }
